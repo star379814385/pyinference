@@ -1,0 +1,2 @@
+black ./pyinference
+isort ./pyinference
