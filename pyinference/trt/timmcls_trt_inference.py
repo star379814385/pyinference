@@ -7,8 +7,8 @@ from .trt_base_inference import TensorRTInfer
 
 
 class TimmClsTensorRTInfer(TensorRTInfer):
-    def __init__(self, engine_path):
-        super().__init__(engine_path)
+    def __init__(self, engine_path, num_buffer=1):
+        super().__init__(engine_path, num_buffer)
         self.rgb_means = np.array([0.485, 0.456, 0.406], dtype=np.float32) * 255
         self.rgb_stds = np.array([0.229, 0.224, 0.225], dtype=np.float32) * 255
 

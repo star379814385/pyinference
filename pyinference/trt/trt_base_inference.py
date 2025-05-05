@@ -139,8 +139,10 @@ Tensorrt Use For Ver 10.9
 
 
 class TensorRTInfer(BaseInferece):
-    def __init__(self, model_path: str):
+    def __init__(self, model_path: str, num_buffer=1):
+        self.num_buffer = num_buffer
         super().__init__(model_path)
+        
 
     def load_model(self, engine_path: str) -> None:
         # Load TRT engine
@@ -174,7 +176,7 @@ class TensorRTInfer(BaseInferece):
             else:
                 self.outputs_info.append(binding)
         self.buffers = []
-        for i in range(1):
+        for i in range(self.num_buffer):
             inputs, outputs, bindings, stream = allocate_buffers(self.engine, None)
             self.buffers.append(
                 {
@@ -182,6 +184,7 @@ class TensorRTInfer(BaseInferece):
                     "outputs": outputs,
                     "bindings": bindings,
                     "stream": stream,
+                    "data_name": "",
                 }
             )
 
@@ -214,7 +217,7 @@ class TensorRTInfer(BaseInferece):
         outputs = self._infer(inputs, check_data=False)
         return self.postprocess(outputs)
 
-    def infer_async(self, inputs: List[np.ndarray]) -> Any:
+    def infer_async(self, inputs: List[np.ndarray], data_name: str = "") -> Any:
         buffer = None
         for buffer_ in self.buffers:
             event = buffer_.get("event", None)
@@ -231,7 +234,9 @@ class TensorRTInfer(BaseInferece):
         bindings = buffer["bindings"]
         for i in range(len(inputs)):
             inputs[i].host = inputs_process[i]
-
+            # inputs[i]._host = np.ascontiguousarray(inputs_process[i])
+        buffer["data_name"] = data_name
+        
         num_io = self.engine.num_io_tensors
         for i in range(num_io):
             self.context.set_tensor_address(self.engine.get_tensor_name(i), bindings[i])
@@ -258,6 +263,7 @@ class TensorRTInfer(BaseInferece):
         ]
         cuda_call(cudart.cudaEventRecord(end_event, stream))
         buffer["event"] = end_event
+        
         return True
 
     def get_results(self, wait=False):
@@ -278,5 +284,7 @@ class TensorRTInfer(BaseInferece):
                 for i, out in enumerate(outputs)
             ]
             res = self.postprocess(res)
-            results.append(res)
+            results.append(
+                {"res": res, "data_name": buffer["data_name"]}
+            )
         return results
